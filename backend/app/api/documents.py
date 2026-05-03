@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Optional
+from datetime import datetime, timezone, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -12,6 +13,16 @@ from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentRespons
 from app.core.storage import upload_file_async, get_file_url, delete_file_async
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+def calculate_status(expiry_date: date) -> str:
+    if not expiry_date:
+        return "active"
+    today = datetime.now(timezone.utc).date()
+    if expiry_date < today:
+        return "expired"
+    elif expiry_date <= today + timedelta(days=30):
+        return "expiring_soon"
+    return "active"
 
 def inject_file_url(doc: Document) -> DocumentResponse:
     doc_dict = {
@@ -78,6 +89,10 @@ async def create_document(
     payload = data.model_dump()
     provided_owner = payload.pop("owner_id", None)
     
+    # Auto-calculate status based on expiry_date
+    if "expiry_date" in payload and payload["expiry_date"]:
+        payload["status"] = calculate_status(payload["expiry_date"])
+    
     new_doc = Document(
         **payload,
         owner_id=provided_owner if provided_owner else current_user.id
@@ -113,6 +128,10 @@ async def update_document(
         
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(doc, key, value)
+        
+    # Auto-calculate status based on updated expiry_date (unless it's deleted)
+    if doc.status != 'deleted' and doc.expiry_date:
+        doc.status = calculate_status(doc.expiry_date)
         
     await db.commit()
     await db.refresh(doc)
