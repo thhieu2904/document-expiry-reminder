@@ -1,3 +1,4 @@
+import httpx
 import aiosmtplib
 from email.message import EmailMessage
 from app.core.config import settings
@@ -8,9 +9,37 @@ async def send_reminder_email(
     html_content: str
 ) -> bool:
     """
-    Sends an email using the configured SMTP server (Mailtrap).
+    Sends an email using Resend API (HTTP) if available, otherwise falls back to SMTP.
     Returns True if successful, False otherwise.
     """
+    if settings.resend_api_key:
+        # Use Resend API via HTTP (bypasses Render's SMTP port blocks)
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {settings.resend_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": f"{settings.smtp_from_name} <no-reply@aic-rag.site>",
+                        "to": recipient_email,
+                        "subject": subject,
+                        "html": html_content,
+                    },
+                    timeout=15.0
+                )
+                if response.status_code in [200, 201]:
+                    return True
+                else:
+                    print(f"Resend API Error: {response.text}")
+                    return False
+        except Exception as e:
+            print(f"Failed to send email via Resend API: {e}")
+            return False
+
+    # Fallback to standard SMTP
     if not settings.smtp_host or not settings.smtp_user:
         print("SMTP is not configured. Skipping email send.")
         return False

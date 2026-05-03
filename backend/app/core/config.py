@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Supabase Storage
     supabase_storage_bucket: str = "documents"
 
+    # Resend API (HTTP based, bypasses SMTP blocks)
+    resend_api_key: Optional[str] = None
+
     # SMTP
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
