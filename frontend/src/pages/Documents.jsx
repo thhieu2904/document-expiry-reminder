@@ -346,7 +346,7 @@ const Documents = () => {
               optionFilterProp="children"
             >
               {users
-                .filter(u => !selectedDepartmentId || u.department_id === selectedDepartmentId)
+                .filter(u => !selectedDepartmentId || u.department_id === selectedDepartmentId || u.id === form.getFieldValue('owner_id'))
                 .map(u => (
                 <Option key={u.id} value={u.id}>{u.full_name} ({u.email})</Option>
               ))}
