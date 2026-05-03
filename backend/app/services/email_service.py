@@ -29,7 +29,7 @@ async def send_reminder_email(
             port=settings.smtp_port,
             username=settings.smtp_user,
             password=settings.smtp_password,
-            start_tls=False, # Mailtrap doesn't strictly require TLS on 2525, but we can set it if needed.
+            start_tls=True,  # Required for Gmail (port 587) and most production SMTP servers
         )
         return True
     except Exception as e:

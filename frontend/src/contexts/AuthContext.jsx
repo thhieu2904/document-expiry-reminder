@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Spin } from 'antd';
 import api from '../services/api';
 
 const AuthContext = createContext();
@@ -45,7 +46,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   if (loading) {
-    return <div>Loading...</div>; // Could replace with antd Spin
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" tip="Đang xác thực..." />
+      </div>
+    );
   }
 
   return (

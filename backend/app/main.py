@@ -10,12 +10,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api import auth, users, departments, documents, reminders, dashboard
+from app.api import auth, users, departments, documents, reminders, dashboard, settings as settings_api
 
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.tasks.document_tasks import update_document_statuses
 from app.services.reminder_engine import process_reminders
+from app.core.scheduler import load_settings_and_configure_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,8 +25,14 @@ async def lifespan(app: FastAPI):
     
     # Init scheduler
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(update_document_statuses, 'cron', hour=0, minute=0)
-    scheduler.add_job(process_reminders, 'cron', hour=0, minute=5) # Run 5 mins after status update
+    app.state.scheduler = scheduler
+    
+    # Static job: Update document statuses at midnight and noon UTC (7:00 AM & 7:00 PM VN)
+    scheduler.add_job(update_document_statuses, 'cron', hour='0,12', minute=0, id="doc_status_job")
+    
+    # Dynamic jobs: Load from database
+    await load_settings_and_configure_scheduler(scheduler)
+    
     scheduler.start()
     
     # Run once on startup to catch up
@@ -65,6 +72,7 @@ app.include_router(departments.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(reminders.router, prefix="/api/reminders", tags=["reminders"])
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
+app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
 
 
 @app.get("/api/health")

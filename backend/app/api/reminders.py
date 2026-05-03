@@ -2,6 +2,7 @@ import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -62,26 +63,21 @@ async def delete_rule(rule_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @router.get("/logs", response_model=List[ReminderLogResponse])
 async def list_logs(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    # Join with document and rule to get titles (optional enhancement)
-    # For now, just return logs and we can fetch relations if needed.
+    # Use joinedload to fetch document and rule in a single query (no N+1)
     res = await db.execute(
         select(ReminderLog)
+        .options(
+            selectinload(ReminderLog.document),
+            selectinload(ReminderLog.rule),
+        )
         .order_by(ReminderLog.created_at.desc())
         .offset(skip)
         .limit(limit)
     )
     logs = res.scalars().all()
     
-    # We will manually inject document title and rule name for the frontend
     response_logs = []
     for log in logs:
-        # Avoid N+1 in production by using joinedload, but this is fine for MVP small data
-        doc_res = await db.execute(select(Document.title).where(Document.id == log.document_id))
-        doc_title = doc_res.scalar_one_or_none()
-        
-        rule_res = await db.execute(select(ReminderRule.name).where(ReminderRule.id == log.rule_id))
-        rule_name = rule_res.scalar_one_or_none()
-        
         log_dict = {
             "id": log.id,
             "document_id": log.document_id,
@@ -91,8 +87,8 @@ async def list_logs(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(
             "status": log.status,
             "sent_at": log.sent_at,
             "created_at": log.created_at,
-            "document_title": doc_title,
-            "rule_name": rule_name
+            "document_title": log.document.title if log.document else None,
+            "rule_name": log.rule.name if log.rule else None,
         }
         response_logs.append(ReminderLogResponse(**log_dict))
         
