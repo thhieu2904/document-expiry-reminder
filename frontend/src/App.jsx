@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Departments from './pages/Departments';
 import Users from './pages/Users';
 import Documents from './pages/Documents';
+import DeletedDocuments from './pages/DeletedDocuments';
 import Reminders from './pages/Reminders';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,6 +36,7 @@ function App() {
         <Route path="departments" element={<Departments />} />
         <Route path="users" element={<Users />} />
         <Route path="reminders" element={<Reminders />} />
+        <Route path="deleted-documents" element={<DeletedDocuments />} />
       </Route>
 
       

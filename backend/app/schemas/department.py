@@ -34,6 +34,7 @@ class DepartmentResponse(BaseModel):
     code: Optional[str] = None
     parent_id: Optional[uuid.UUID] = None
     manager_id: Optional[uuid.UUID] = None
+    user_count: int = 0
     created_at: datetime
     updated_at: datetime
 

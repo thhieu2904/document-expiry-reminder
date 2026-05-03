@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const { Search } = Input;
@@ -12,6 +13,7 @@ const Departments = () => {
   const [editingId, setEditingId] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
+  const navigate = useNavigate();
 
   const fetchDepartments = async () => {
     setLoading(true);
@@ -87,6 +89,21 @@ const Departments = () => {
     { title: 'Mã phòng ban', dataIndex: 'code', key: 'code', width: '20%', sorter: (a, b) => (a.code || '').localeCompare(b.code || '') },
     { title: 'Tên phòng ban', dataIndex: 'name', key: 'name', sorter: (a, b) => a.name.localeCompare(b.name) },
     {
+      title: 'Nhân viên',
+      key: 'user_count',
+      width: '15%',
+      render: (_, record) => (
+        <Button 
+          type="link" 
+          onClick={() => navigate(`/users?department_id=${record.id}`)}
+          className="p-0 flex items-center gap-1 text-blue-600 hover:text-blue-800"
+        >
+          <TeamOutlined /> {record.user_count || 0}
+        </Button>
+      ),
+      sorter: (a, b) => (a.user_count || 0) - (b.user_count || 0),
+    },
+    {
       title: 'Hành động',
       key: 'action',
       width: '15%',
@@ -94,12 +111,17 @@ const Departments = () => {
         <Space size="small">
           <Button type="text" icon={<EditOutlined />} onClick={() => handleOpenModal(record)} className="text-gray-600 hover:text-indigo-600" />
           <Popconfirm
-            title="Bạn có chắc chắn muốn xóa?"
+            title={
+              <div>
+                <p className="font-semibold mb-1">Bạn có chắc chắn muốn xóa?</p>
+                <p className="text-gray-500 text-xs m-0">Lưu ý: Chỉ có thể xóa phòng ban không có nhân viên.</p>
+              </div>
+            }
             onConfirm={() => handleDelete(record.id)}
             okText="Xóa"
             cancelText="Hủy"
           >
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            <Button type="text" danger icon={<DeleteOutlined />} disabled={record.user_count > 0} />
           </Popconfirm>
         </Space>
       ),
@@ -138,7 +160,7 @@ const Departments = () => {
         open={isModalVisible}
         onCancel={handleCancel}
         onOk={() => form.submit()}
-        destroyOnClose
+        destroyOnHidden
         okText="Lưu lại"
         cancelText="Hủy bỏ"
       >

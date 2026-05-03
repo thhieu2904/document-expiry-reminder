@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" tip="Đang xác thực..." />
+        <Spin size="large" description="Đang xác thực..." />
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider, message, notification } from 'antd';
+import { ConfigProvider, App as AntdApp, message, notification } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import { AuthProvider } from './contexts/AuthContext';
 import App from './App.jsx';
@@ -37,9 +37,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           },
         }}
       >
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <AntdApp>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </AntdApp>
       </ConfigProvider>
     </BrowserRouter>
   </React.StrictMode>,

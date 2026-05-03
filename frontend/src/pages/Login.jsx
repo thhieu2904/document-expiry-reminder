@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message } from 'antd';
+import { Form, Input, Button, App } from 'antd';
 import { UserOutlined, LockOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { message } = App.useApp();
   const navigate = useNavigate();
 
   const onFinish = async (values) => {

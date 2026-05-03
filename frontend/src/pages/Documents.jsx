@@ -23,6 +23,7 @@ const Documents = () => {
   const [documents, setDocuments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -63,15 +64,41 @@ const Documents = () => {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsersByDepartment = async (deptId) => {
+    const currentOwnerId = form.getFieldValue('owner_id');
+    
+    // Xóa danh sách cũ ngay lập tức để không bị lỗi hiển thị danh sách cũ (chỉ giữ lại người đang được chọn để không bị lỗi hiện UUID)
+    setUsers(prev => {
+      const owner = prev.find(u => u.id === currentOwnerId);
+      return owner ? [owner] : [];
+    });
+
+    if (!deptId) {
+      return;
+    }
+    setLoadingUsers(true);
     try {
-      // Get all active users
-      const res = await api.get('/users?page_size=1000');
-      setUsers(res.data.items || []);
+      const res = await api.get(`/users?department_id=${deptId}&page_size=100`);
+      const fetchedUsers = res.data.items || [];
+      
+      setUsers(prev => {
+        const owner = prev.find(u => u.id === currentOwnerId);
+        // Đảm bảo người đang được chọn luôn có trong danh sách
+        if (owner && !fetchedUsers.find(u => u.id === owner.id)) {
+          return [...fetchedUsers, owner];
+        }
+        return fetchedUsers;
+      });
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoadingUsers(false);
     }
   };
+
+  useEffect(() => {
+    fetchUsersByDepartment(selectedDepartmentId);
+  }, [selectedDepartmentId]);
 
   // Listen to URL changes for status
   useEffect(() => {
@@ -87,10 +114,9 @@ const Documents = () => {
 
   useEffect(() => {
     fetchDepartments();
-    fetchUsers();
   }, []);
 
-  const handleOpenModal = (record = null) => {
+  const handleOpenModal = async (record = null) => {
     if (record) {
       setEditingId(record.id);
       form.setFieldsValue({
@@ -98,10 +124,28 @@ const Documents = () => {
         expiry_date: dayjs(record.expiry_date),
       });
       setFileList(record.file_url ? [{ uid: '-1', name: record.file_name || 'File đính kèm', status: 'done', url: record.file_url }] : []);
+      
+      // Explicitly fetch the owner's details if they exist so their name displays properly
+      // even before the department users finish loading or if they belong to another dept.
+      if (record.owner_id) {
+        try {
+          const res = await api.get(`/users/${record.owner_id}`);
+          setUsers(prev => {
+            const exists = prev.find(u => u.id === res.data.id);
+            if (exists) return prev;
+            return [...prev, res.data];
+          });
+        } catch (e) {
+          console.error("Could not fetch owner details", e);
+        }
+      }
     } else {
       setEditingId(null);
       form.resetFields();
-      form.setFieldsValue({ owner_id: currentUser?.id }); // Default to current user
+      if (currentUser) {
+        form.setFieldsValue({ owner_id: currentUser.id }); // Default to current user
+        setUsers([currentUser]); // Đảm bảo currentUser có sẵn trong danh sách để không bị hiện UUID thô
+      }
       setFileList([]);
     }
     setIsModalVisible(true);
@@ -113,7 +157,10 @@ const Documents = () => {
     setFileList([]);
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async (values) => {
+    setSaving(true);
     try {
       const payload = {
         ...values,
@@ -123,27 +170,37 @@ const Documents = () => {
       let docId = editingId;
       if (editingId) {
         await api.put(`/documents/${editingId}`, payload);
-        message.success('Cập nhật văn bản thành công');
       } else {
         const res = await api.post('/documents', payload);
         docId = res.data.id;
-        message.success('Thêm văn bản thành công');
       }
 
       // Handle file upload
       const currentFile = fileList[0];
-      if (currentFile && currentFile.originFileObj) {
-        const formData = new FormData();
-        formData.append('file', currentFile.originFileObj);
-        await api.post(`/documents/${docId}/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      // Nếu là file mới chọn từ máy tính, nó có thể là File object hoặc có thuộc tính originFileObj
+      const actualFileToUpload = currentFile?.originFileObj || (currentFile instanceof File ? currentFile : null);
+      
+      if (actualFileToUpload) {
+        try {
+          const formData = new FormData();
+          formData.append('file', actualFileToUpload);
+          await api.post(`/documents/${docId}/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          message.success(editingId ? 'Cập nhật văn bản và tải file thành công!' : 'Thêm văn bản và tải file thành công!');
+        } catch (uploadErr) {
+          message.warning('Đã lưu văn bản nhưng tải file thất bại: ' + (uploadErr.response?.data?.detail || uploadErr.message));
+        }
+      } else {
+        message.success(editingId ? 'Cập nhật văn bản thành công!' : 'Thêm văn bản thành công!');
       }
 
       setIsModalVisible(false);
       fetchDocuments();
     } catch (error) {
       message.error(error.response?.data?.detail || 'Lỗi khi lưu văn bản');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -321,9 +378,11 @@ const Documents = () => {
         onCancel={handleCancel}
         onOk={() => form.submit()}
         width={650}
-        destroyOnClose
-        okText="Lưu lại"
+        destroyOnHidden
+        okText={saving ? "Đang lưu..." : "Lưu lại"}
         cancelText="Hủy bỏ"
+        confirmLoading={saving}
+        cancelButtonProps={{ disabled: saving }}
       >
         <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
           <div className="grid grid-cols-2 gap-4">
@@ -341,16 +400,27 @@ const Documents = () => {
           
           <Form.Item name="owner_id" label={<span className="font-medium text-gray-700">Người phụ trách (Nhận nhắc nhở)</span>} rules={[{ required: true, message: 'Vui lòng chọn người phụ trách' }]}>
             <Select 
-              placeholder="Chọn người nhận mail" 
+              placeholder={loadingUsers ? "Đang tải danh sách..." : "Chọn người nhận mail"} 
               showSearch
-              optionFilterProp="children"
-            >
-              {users
+              disabled={loadingUsers}
+              optionFilterProp="filterName"
+              options={users
                 .filter(u => !selectedDepartmentId || u.department_id === selectedDepartmentId || u.id === form.getFieldValue('owner_id'))
-                .map(u => (
-                <Option key={u.id} value={u.id}>{u.full_name} ({u.email})</Option>
-              ))}
-            </Select>
+                .map(u => ({
+                  label: (
+                    <div className="flex justify-between items-center w-full">
+                      <span className="truncate pr-2">{u.full_name} <span className="text-gray-400 text-xs">({u.email})</span></span>
+                      <div className="flex-shrink-0">
+                        {u.id === currentUser?.id && <Tag color="blue" className="m-0 border-0">Bạn</Tag>}
+                        {u.role === 'admin' && u.id !== currentUser?.id && <Tag color="purple" className="m-0 border-0">Admin</Tag>}
+                      </div>
+                    </div>
+                  ),
+                  value: u.id,
+                  filterName: `${u.full_name} ${u.email}`
+                }))
+              }
+            />
           </Form.Item>
           
           <Form.Item name="title" label={<span className="font-medium text-gray-700">Tên văn bản / Trích yếu</span>} rules={[{ required: true, message: 'Vui lòng nhập tên văn bản' }]}>
@@ -364,7 +434,11 @@ const Documents = () => {
             
             <Form.Item label={<span className="font-medium text-gray-700">File đính kèm (Tối đa 10MB)</span>}>
               <Upload {...uploadProps} maxCount={1}>
-                <Button icon={<UploadOutlined />} className="w-full text-left">Chọn file PDF/Word</Button>
+                <Button icon={<UploadOutlined />} className="w-full text-left">
+                  {editingId && fileList.length > 0 && fileList[0].url && !fileList[0].originFileObj 
+                    ? "Tải file mới lên (để thay thế)" 
+                    : "Chọn file PDF/Word"}
+                </Button>
               </Upload>
             </Form.Item>
           </div>

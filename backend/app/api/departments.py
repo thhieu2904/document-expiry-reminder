@@ -6,7 +6,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.models.user import User
 from app.core.database import get_db
 from app.core.deps import require_admin
 from app.models.department import Department
@@ -26,11 +26,24 @@ async def list_departments(
     db: AsyncSession = Depends(get_db),
 ):
     """List all departments."""
-    result = await db.execute(select(Department).order_by(Department.name))
-    departments = result.scalars().all()
+    query = (
+        select(Department, func.count(User.id).label('user_count'))
+        .outerjoin(User, User.department_id == Department.id)
+        .group_by(Department.id)
+        .order_by(Department.name)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    
+    items = []
+    for dept, count in rows:
+        dept_dict = DepartmentResponse.model_validate(dept).model_dump()
+        dept_dict['user_count'] = count
+        items.append(DepartmentResponse(**dept_dict))
+        
     return DepartmentListResponse(
-        items=[DepartmentResponse.model_validate(d) for d in departments],
-        total=len(departments),
+        items=items,
+        total=len(items),
     )
 
 
@@ -107,6 +120,10 @@ async def delete_department(
     dept = result.scalar_one_or_none()
     if not dept:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
+
+    user_count_res = await db.execute(select(func.count(User.id)).where(User.department_id == dept_id))
+    if user_count_res.scalar() > 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Không thể xóa phòng ban đang có nhân viên")
 
     await db.delete(dept)
     await db.flush()

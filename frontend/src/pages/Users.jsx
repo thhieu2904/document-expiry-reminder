@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Popconfirm, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 
 const { Search } = Input;
@@ -13,6 +14,13 @@ const Users = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchText, setSearchText] = useState('');
+  
+  // Lấy department_id từ URL nếu có
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialDeptId = searchParams.get('department_id');
+  const [departmentFilter, setDepartmentFilter] = useState(initialDeptId || null);
+
   const [form] = Form.useForm();
 
   const fetchUsers = async () => {
@@ -87,6 +95,13 @@ const Users = () => {
 
   const filteredUsers = useMemo(() => {
     let filtered = users.filter(u => u.can_login === false);
+    
+    // Filter by department
+    if (departmentFilter) {
+      filtered = filtered.filter(u => u.department_id === departmentFilter);
+    }
+    
+    // Filter by search text
     if (searchText) {
       const lowerSearch = searchText.toLowerCase();
       filtered = filtered.filter(u => 
@@ -94,8 +109,9 @@ const Users = () => {
         (u.email && u.email.toLowerCase().includes(lowerSearch))
       );
     }
+    
     return filtered;
-  }, [users, searchText]);
+  }, [users, searchText, departmentFilter]);
 
   const columns = [
     { title: 'Họ tên', dataIndex: 'full_name', key: 'full_name', sorter: (a, b) => a.full_name.localeCompare(b.full_name) },
@@ -131,20 +147,31 @@ const Users = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-gray-800 m-0">Quản lý Người nhận thông báo</h2>
+        <h2 className="text-2xl font-bold text-gray-800 m-0">Quản lý Nhân viên</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenModal()} size="large" className="rounded-lg shadow-sm">
-          Thêm Người nhận
+          Thêm Nhân viên
         </Button>
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
-        <Search
-          placeholder="Tìm kiếm theo Tên hoặc Email..."
-          allowClear
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{ maxWidth: 400 }}
-          size="large"
-        />
+        <div className="flex gap-4">
+          <Search
+            placeholder="Tìm kiếm theo tên hoặc email..."
+            allowClear
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ maxWidth: 400 }}
+            size="large"
+          />
+          <Select
+            placeholder="Lọc theo phòng ban"
+            allowClear
+            size="large"
+            value={departmentFilter}
+            onChange={(val) => setDepartmentFilter(val)}
+            style={{ minWidth: 250 }}
+            options={departments.map(d => ({ label: d.name, value: d.id }))}
+          />
+        </div>
 
         <Table
           columns={columns}
@@ -160,7 +187,7 @@ const Users = () => {
         open={isModalVisible}
         onCancel={handleCancel}
         onOk={() => form.submit()}
-        destroyOnClose
+        destroyOnHidden
         okText="Lưu lại"
         cancelText="Hủy bỏ"
       >

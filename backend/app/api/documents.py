@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -47,6 +47,10 @@ async def list_documents(
     query = select(Document)
     if status_filter:
         query = query.where(Document.status == status_filter)
+    else:
+        # Mặc định ẩn các văn bản đã xóa (Soft Delete)
+        query = query.where(Document.status != 'deleted')
+        
     if department_id:
         query = query.where(Document.department_id == department_id)
     if search:
@@ -165,8 +169,13 @@ async def delete_document(
     if doc.file_path:
         try:
             await delete_file_async(doc.file_path)
+            doc.file_path = None
+            doc.file_name = None
+            doc.file_size = None
         except:
             pass
             
-    await db.delete(doc)
+    # Soft Delete: Đổi trạng thái thay vì xóa cứng
+    doc.status = 'deleted'
+    
     await db.commit()

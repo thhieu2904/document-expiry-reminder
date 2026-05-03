@@ -7,7 +7,8 @@ import {
   BankOutlined,
   BellOutlined,
   LogoutOutlined,
-  UserOutlined
+  UserOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,7 +69,7 @@ const AppLayout = () => {
     {
       key: '/users',
       icon: <TeamOutlined />,
-      label: 'Người dùng',
+      label: 'Nhân viên',
       onClick: () => navigate('/users'),
     },
     { type: 'divider' },
@@ -79,6 +80,16 @@ const AppLayout = () => {
       onClick: () => navigate('/reminders'),
     },
   ];
+
+  if (user?.role === 'admin') {
+    menuItems.push({ type: 'divider' });
+    menuItems.push({
+      key: '/deleted-documents',
+      icon: <DeleteOutlined />,
+      label: 'Thùng rác',
+      onClick: () => navigate('/deleted-documents'),
+    });
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans">

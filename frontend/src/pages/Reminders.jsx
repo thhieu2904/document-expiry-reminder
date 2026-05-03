@@ -244,7 +244,7 @@ Vui lòng kiểm tra và xử lý kịp thời.`;
         title="Lịch Gửi Tự Động (Cronjob)" 
         size="small" 
         className="mb-6 border-blue-200 shadow-sm"
-        headStyle={{ backgroundColor: '#f0f9ff', color: '#0369a1' }}
+        styles={{ header: { backgroundColor: '#f0f9ff', color: '#0369a1' } }}
       >
         <Form 
           form={cronForm} 
