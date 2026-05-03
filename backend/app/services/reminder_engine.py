@@ -111,22 +111,24 @@ async def process_reminders():
                         
                         success = await send_reminder_email(owner.email, subject, html)
                         
-                        # Create log
-                        log = ReminderLog(
-                            document_id=doc.id,
-                            rule_id=rule.id,
-                            recipient_user_id=owner.id,
-                            recipient_email=owner.email,
-                            subject=subject,
-                            message=html, # or simple text
-                            status="sent" if success else "failed",
-                            scheduled_at=datetime.now(timezone.utc),
-                            sent_at=datetime.now(timezone.utc) if success else None
-                        )
-                        db.add(log)
-                        
-                        # Commit immediately to avoid duplicates in case of crash
-                        await db.commit()
-                        print(f"[{'SUCCESS' if success else 'FAIL'}] Reminder sent to {owner.email} for document {doc.id}")
+                        # Create log (protected against race condition duplicates)
+                        try:
+                            log = ReminderLog(
+                                document_id=doc.id,
+                                rule_id=rule.id,
+                                recipient_user_id=owner.id,
+                                recipient_email=owner.email,
+                                subject=subject,
+                                message=html,
+                                status="sent" if success else "failed",
+                                scheduled_at=datetime.now(timezone.utc),
+                                sent_at=datetime.now(timezone.utc) if success else None
+                            )
+                            db.add(log)
+                            await db.commit()
+                            print(f"[{'SUCCESS' if success else 'FAIL'}] Reminder sent to {owner.email} for document {doc.id}")
+                        except Exception as e:
+                            await db.rollback()
+                            print(f"[SKIP] Duplicate log for {owner.email} / doc {doc.id} — already processed")
 
     print(f"[{datetime.now(timezone.utc)}] Reminder engine finished.")

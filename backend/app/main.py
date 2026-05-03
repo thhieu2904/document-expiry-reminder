@@ -75,7 +75,7 @@ app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok", "app": settings.app_name, "env": settings.app_env}

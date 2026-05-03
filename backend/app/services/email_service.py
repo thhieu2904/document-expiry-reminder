@@ -23,13 +23,18 @@ async def send_reminder_email(
     message.add_alternative(html_content, subtype='html')
 
     try:
+        # Use port 465 with implicit SSL (use_tls=True) for cloud hosting compatibility.
+        # Port 587 with STARTTLS is blocked by many cloud providers (Render, Railway, etc.)
+        use_ssl = settings.smtp_port == 465
         await aiosmtplib.send(
             message,
             hostname=settings.smtp_host,
             port=settings.smtp_port,
             username=settings.smtp_user,
             password=settings.smtp_password,
-            start_tls=True,  # Required for Gmail (port 587) and most production SMTP servers
+            use_tls=use_ssl,
+            start_tls=not use_ssl,
+            timeout=30,
         )
         return True
     except Exception as e:
