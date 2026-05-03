@@ -9,6 +9,8 @@ class ReminderRuleBase(BaseModel):
     is_overdue_rule: bool = False
     channel: str = "email"
     is_active: bool = True
+    subject_template: Optional[str] = None
+    body_template: Optional[str] = None
 
 class ReminderRuleCreate(ReminderRuleBase):
     pass
@@ -18,6 +20,8 @@ class ReminderRuleUpdate(BaseModel):
     days_before: Optional[int] = None
     is_overdue_rule: Optional[bool] = None
     is_active: Optional[bool] = None
+    subject_template: Optional[str] = None
+    body_template: Optional[str] = None
 
 class ReminderRuleResponse(ReminderRuleBase):
     id: uuid.UUID

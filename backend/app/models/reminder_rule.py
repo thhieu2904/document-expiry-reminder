@@ -19,6 +19,10 @@ class ReminderRule(Base):
     channel: Mapped[str] = mapped_column(String(20), default="email")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     
+    # Custom email templates
+    subject_template: Mapped[str] = mapped_column(String(255), nullable=True)
+    body_template: Mapped[str] = mapped_column(String, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
