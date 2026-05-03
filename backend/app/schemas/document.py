@@ -12,7 +12,7 @@ class DocumentBase(BaseModel):
     status: Optional[str] = "active"
 
 class DocumentCreate(DocumentBase):
-    pass
+    owner_id: Optional[uuid.UUID] = None
 
 class DocumentUpdate(BaseModel):
     title: Optional[str] = None
@@ -21,6 +21,7 @@ class DocumentUpdate(BaseModel):
     department_id: Optional[uuid.UUID] = None
     expiry_date: Optional[date] = None
     status: Optional[str] = None
+    owner_id: Optional[uuid.UUID] = None
 
 class DocumentResponse(DocumentBase):
     id: uuid.UUID

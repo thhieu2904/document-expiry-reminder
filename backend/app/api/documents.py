@@ -70,9 +70,13 @@ async def create_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Extract owner_id and remove it from dump so it doesn't duplicate
+    payload = data.model_dump()
+    provided_owner = payload.pop("owner_id", None)
+    
     new_doc = Document(
-        **data.model_dump(),
-        owner_id=current_user.id
+        **payload,
+        owner_id=provided_owner if provided_owner else current_user.id
     )
     db.add(new_doc)
     await db.commit()

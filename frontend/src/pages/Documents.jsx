@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, DownloadOut
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -21,12 +22,15 @@ const formatBytes = (bytes, decimals = 2) => {
 const Documents = () => {
   const [documents, setDocuments] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [fileList, setFileList] = useState([]);
   const [form] = Form.useForm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user: currentUser } = useAuth();
+  const selectedDepartmentId = Form.useWatch('department_id', form);
 
   // Filters state
   const [searchText, setSearchText] = useState('');
@@ -59,6 +63,16 @@ const Documents = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      // Get all active users
+      const res = await api.get('/users?page_size=1000');
+      setUsers(res.data.items || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   // Listen to URL changes for status
   useEffect(() => {
     const statusFromUrl = searchParams.get('status') || '';
@@ -73,6 +87,7 @@ const Documents = () => {
 
   useEffect(() => {
     fetchDepartments();
+    fetchUsers();
   }, []);
 
   const handleOpenModal = (record = null) => {
@@ -86,6 +101,7 @@ const Documents = () => {
     } else {
       setEditingId(null);
       form.resetFields();
+      form.setFieldsValue({ owner_id: currentUser?.id }); // Default to current user
       setFileList([]);
     }
     setIsModalVisible(true);
@@ -322,6 +338,20 @@ const Documents = () => {
               </Select>
             </Form.Item>
           </div>
+          
+          <Form.Item name="owner_id" label={<span className="font-medium text-gray-700">Người phụ trách (Nhận nhắc nhở)</span>} rules={[{ required: true, message: 'Vui lòng chọn người phụ trách' }]}>
+            <Select 
+              placeholder="Chọn người nhận mail" 
+              showSearch
+              optionFilterProp="children"
+            >
+              {users
+                .filter(u => !selectedDepartmentId || u.department_id === selectedDepartmentId)
+                .map(u => (
+                <Option key={u.id} value={u.id}>{u.full_name} ({u.email})</Option>
+              ))}
+            </Select>
+          </Form.Item>
           
           <Form.Item name="title" label={<span className="font-medium text-gray-700">Tên văn bản / Trích yếu</span>} rules={[{ required: true, message: 'Vui lòng nhập tên văn bản' }]}>
             <Input.TextArea rows={2} placeholder="Nhập trích yếu văn bản..." />
