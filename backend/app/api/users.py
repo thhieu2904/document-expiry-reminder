@@ -21,7 +21,7 @@ router = APIRouter(prefix="/users", tags=["Users"], dependencies=[Depends(requir
 @router.get("", response_model=UserListResponse)
 async def list_users(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=1000),
     search: str | None = None,
     department_id: uuid.UUID | None = None,
     status_filter: str | None = Query(None, alias="status"),
